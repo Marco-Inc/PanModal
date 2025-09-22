@@ -408,13 +408,29 @@ private extension PanModalPresentationController {
      Adds the drag indicator view to the view hierarchy
      & configures its layout constraints.
      */
+//    func addDragIndicatorView(to view: UIView) {
+//        view.addSubview(dragIndicatorView)
+//        dragIndicatorView.translatesAutoresizingMaskIntoConstraints = false
+//        dragIndicatorView.bottomAnchor.constraint(equalTo: view.topAnchor, constant: -Constants.indicatorYOffset).isActive = true
+//        dragIndicatorView.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+//        dragIndicatorView.widthAnchor.constraint(equalToConstant: Constants.dragIndicatorSize.width).isActive = true
+//        dragIndicatorView.heightAnchor.constraint(equalToConstant: Constants.dragIndicatorSize.height).isActive = true
+//    }
     func addDragIndicatorView(to view: UIView) {
+        let center: CGFloat
+        if #available(iOS 15.0, *),
+           let scane = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let centerX = scane.keyWindow?.center.x
+        {
+            let x = centerX - (Constants.dragIndicatorSize.width / 2)
+            dragIndicatorView.frame = CGRect(
+                x: x,
+                y: Constants.indicatorYOffset,
+                width: Constants.dragIndicatorSize.width,
+                height: Constants.dragIndicatorSize.height
+            )
+        }
         view.addSubview(dragIndicatorView)
-        dragIndicatorView.translatesAutoresizingMaskIntoConstraints = false
-        dragIndicatorView.bottomAnchor.constraint(equalTo: view.topAnchor, constant: -Constants.indicatorYOffset).isActive = true
-        dragIndicatorView.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
-        dragIndicatorView.widthAnchor.constraint(equalToConstant: Constants.dragIndicatorSize.width).isActive = true
-        dragIndicatorView.heightAnchor.constraint(equalToConstant: Constants.dragIndicatorSize.height).isActive = true
     }
 
     /**
@@ -841,26 +857,59 @@ private extension PanModalPresentationController {
      We have to set a custom path for corner rounding
      because we render the dragIndicator outside of view bounds
      */
+//    func addRoundedCorners(to view: UIView) {
+//        let radius = presentable?.cornerRadius ?? 0
+//        let path = UIBezierPath(roundedRect: view.bounds,
+//                                byRoundingCorners: [.topLeft, .topRight],
+//                                cornerRadii: CGSize(width: radius, height: radius))
+//
+//        // Draw around the drag indicator view, if displayed
+//        if presentable?.showDragIndicator == true {
+//            let indicatorLeftEdgeXPos = view.bounds.width/2.0 - Constants.dragIndicatorSize.width/2.0
+//            drawAroundDragIndicator(currentPath: path, indicatorLeftEdgeXPos: indicatorLeftEdgeXPos)
+//        }
+//
+//        // Set path as a mask to display optional drag indicator view & rounded corners
+//        let mask = CAShapeLayer()
+//        mask.path = path.cgPath
+//        view.layer.mask = mask
+//
+//        // Improve performance by rasterizing the layer
+//        view.layer.shouldRasterize = true
+//        view.layer.rasterizationScale = UIScreen.main.scale
+//    }
+    
     func addRoundedCorners(to view: UIView) {
         let radius = presentable?.cornerRadius ?? 0
-        let path = UIBezierPath(roundedRect: view.bounds,
-                                byRoundingCorners: [.topLeft, .topRight],
-                                cornerRadii: CGSize(width: radius, height: radius))
-
-        // Draw around the drag indicator view, if displayed
-        if presentable?.showDragIndicator == true {
-            let indicatorLeftEdgeXPos = view.bounds.width/2.0 - Constants.dragIndicatorSize.width/2.0
-            drawAroundDragIndicator(currentPath: path, indicatorLeftEdgeXPos: indicatorLeftEdgeXPos)
+        
+        if #available(iOS 11.0, *) {
+            view.layer.cornerRadius = radius
+            view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+            view.layer.masksToBounds = true
+        } else {
+            let maskPath = UIBezierPath(roundedRect: view.bounds,
+                                        byRoundingCorners: [.topLeft, .topRight],
+                                        cornerRadii: CGSize(width: radius, height: radius))
+            let maskLayer = CAShapeLayer()
+            maskLayer.path = maskPath.cgPath
+            view.layer.mask = maskLayer
         }
-
-        // Set path as a mask to display optional drag indicator view & rounded corners
-        let mask = CAShapeLayer()
-        mask.path = path.cgPath
-        view.layer.mask = mask
-
-        // Improve performance by rasterizing the layer
+        
         view.layer.shouldRasterize = true
         view.layer.rasterizationScale = UIScreen.main.scale
+        
+        if #available(iOS 19.0, *) {
+            let subviews = view.subviews
+            view.subviews.forEach { $0.removeFromSuperview() }
+            subviews.forEach { view.addSubview($0) }
+            
+            DispatchQueue.main.async {
+                if #available(iOS 11.0, *) {
+                    view.layer.cornerRadius = radius
+                    view.layer.masksToBounds = true
+                }
+            }
+        }
     }
 
     /**
